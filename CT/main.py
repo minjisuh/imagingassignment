@@ -45,19 +45,19 @@ theta = np.linspace(0., 180., sinogram.shape[0], endpoint=False)
 reconstructed_img = back_projection(sinogram, theta)
 
 # # 결과를 시각화합니다.
-# plt.imshow(reconstructed_img, cmap='gray')
-# plt.title('Back Projected Image')
-# plt.axis('off')
-# plt.show()
-
-# Apply ramp filter to sinogram
-filtered_sinogram = np.abs(np.fft.ifft(np.fft.fftshift(np.fft.fft(sinogram, axis=1), axes=1), axis=1))
-
-# Perform back projection on filtered sinogram
-filtered_reconstructed_img = back_projection(filtered_sinogram, theta)
-
-# Display the filtered reconstructed image
-plt.imshow(filtered_reconstructed_img, cmap='gray')
-plt.title('Filtered Reconstructed Image')
+plt.imshow(reconstructed_img, cmap='gray')
+plt.title('Back Projected Image')
 plt.axis('off')
 plt.show()
+
+# # # Apply ramp filter to sinogram
+# filtered_sinogram = np.abs(np.fft.ifft(np.fft.fftshift(np.fft.fft(sinogram, axis=1), axes=1), axis=1))
+
+# # Perform back projection on filtered sinogram
+# filtered_reconstructed_img = back_projection(filtered_sinogram, theta)
+
+# # Display the filtered reconstructed image
+# plt.imshow(filtered_reconstructed_img, cmap='gray')
+# plt.title('Filtered Reconstructed Image')
+# plt.axis('off')
+# plt.show()
