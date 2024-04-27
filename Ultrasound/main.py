@@ -5,7 +5,7 @@ from scipy.ndimage import zoom
 import imageio.v2 as imageio
 import os
 
-rf_data = np.load('arm_rfdata.npy')
+rf_data = np.load('Ultrasound/arm_rfdata.npy')
 center_frequency = 7.6e6  # Hz
 sound_speed = 1450  # m/s
 speed_of_sound_phantom = 1450 # m/s
@@ -21,9 +21,9 @@ def das_beamforming(rf_data, num_samples, num_elements, element_pos, sampling_ra
     das_image = np.zeros((num_samples, num_elements))
     
     for i in range(num_samples):
-        depth = i * sound_speed / 2 * sampling_rate
+        depth = i * sound_speed / (2 * sampling_rate) 
         for j in range(num_elements):
-            distance = np.sqrt(depth**2 + (element_pos[j] - element_pos[j//2])**2)
+            distance = np.sqrt(depth**2 + (element_pos[j] - element_pos[num_elements//2])**2)
             time_delay = distance / sound_speed
             sample_index = int(time_delay *sampling_rate)
             if sample_index < num_samples:
