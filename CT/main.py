@@ -116,6 +116,6 @@ def apply_filter(pixels, angles, sinogram):
 
 base_filtered_c = apply_filter(pixels, angles, sinogram)
 reconstructed_image_c = back_projection(pixels, angles, base_filtered_c, theta)
-plt.imshow(reconstructed_image_c, cmap = 'gray')
-plt.title('FBP Image filter = Cosine')
-plt.show()
+# plt.imshow(reconstructed_image_c, cmap = 'gray')
+# plt.title('FBP Image filter = Cosine')
+# plt.show()
