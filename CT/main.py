@@ -4,68 +4,119 @@ from scipy import ndimage
 import numpy.fft as fft
 from scipy.fftpack import fft, ifft, fftfreq, fftshift
 
-# .npy 파일 로드
-sinogram = np.load('C:/Users/bt090/CT/sinogram.npy')
-print('Data shape:', sinogram.shape)
+#  주어진 sinogram 파일 로드
+sinogram = np.load('CT/sinogram.npy')
+pixels, angles = sinogram.shape
+theta = list(range(0, 180))
 
-def back_projection(sinogram, theta):
-    # sinogram의 행은 레이더 센서의 인덱스, 열은 각도입니다.
-    num_sensors, num_angles = sinogram.shape
-    # 출력 이미지의 크기를 정합니다. 정사각형 이미지로 가정합니다.
-    output_size = sinogram.shape[0]
-    output_img = np.zeros((output_size, output_size), dtype=np.float32)
+# plt.imshow(sinogram, cmap = 'gray')
+# plt.title('Sinogram')
+# plt.show()
+
+
+# BP 함수 정의
+def back_projection(pixels, angles, sinogram, theta):
+    # output image의 shape에 맞는 512x512의 0의 행렬 생성
+    base = np.zeros((512, 512), dtype=np.float32)
     
-    # 각도에 따른 back projection을 수행합니다.
-    for i in range(num_angles):
-        # 현재 각도에서의 sinogram 데이터
-        projection = sinogram[:, i]
-        
-        # 해당 각도에서의 이미지를 생성합니다.
-        # np.newaxis를 사용하여 배열의 차원을 조정합니다.
-        projection_img = np.tile(projection[:, np.newaxis], (1, output_size))
-        
-        # 이미지를 원래 각도로 회전시킵니다.
-        projection_img = ndimage.rotate(projection_img, theta[i], reshape=False, prefilter=True)
-        
-        # 회전된 이미지를 결과 이미지에 더합니다.
-        output_img += projection_img
-        
-    # 모든 각도에 대한 평균을 취합니다.
-    output_img /= num_angles
-    return output_img
+    for i in range(angles):
+        projection = sinogram[:, i]  #현재 각도의 projection
+        extended_projection = np.tile(projection, (512, 1))  # projection을 512x1로 확장
+        extended_projection = ndimage.rotate(extended_projection, theta[i], reshape=False, prefilter=True)         # 이미지를 현재 각도만큼 회전
+        base += extended_projection  # 회전된 이미지를 base에 더함
+    return base
 
-# Sinogram 데이터와 각도 벡터를 로드합니다.
-theta = np.linspace(0., 180., sinogram.shape[1], endpoint=False)
+backprojected_img = back_projection(pixels, angles, sinogram, theta)
+# plt.imshow(backprojected_img, cmap = 'gray')
+# plt.title('Backprojected Image')
+# plt.show()
 
-# Back Projection을 수행합니다.
-reconstructed_img = back_projection(sinogram, theta)
-plt.imshow(reconstructed_img, cmap = 'gray')
-plt.show()
 
-def create_filter(num_pixels, filter_type='ram-lak', cutoff=10.0):
-    # 필터 생성
-    freqs = fftfreq(num_pixels).reshape(-1, 1)
-    filter = 2 * np.abs(freqs)  # Ram-Lak 필터 기본 형태
-    if filter_type == 'shepp-logan':
-        filter *= np.sinc(freqs / (2 * cutoff))
-    elif filter_type == 'cosine':
-        filter *= np.cos(np.pi * freqs / (2 * cutoff))
-    filter = fftshift(filter)  # 필터를 주파수 영역으로 이동
+
+
+# FBP 과정
+
+# Ram-Lak 필터함수 정의 
+def Ram_Sak_filter(pixels):
+    sample_freq = fftfreq(pixels)
+    filter = 2 * np.abs(sample_freq)  # Ram-Lak 필터 생성
+    filter = fftshift(filter)  
     return filter.flatten()
 
-def apply_filter(sinogram):
-    # 시노그램에 필터 적용
-    num_pixels, num_projections = sinogram.shape
-    filter = create_filter(num_pixels)
-    filtered_sinogram = np.zeros_like(sinogram)
-    for i in range(num_projections):
+def apply_filter(pixels, angles, sinogram):
+    filter = Ram_Sak_filter(pixels)
+    base_filtered = np.zeros((512, 180), dtype=np.float32)  # sinogram과 같은 모양으로 0으로 채운 행렬 생성
+    for i in range(angles):
+        projection = sinogram[:, i]  # 현재 각도의 projection
+        fft_projection = fftshift(fft(projection))  # projection을 주파수 영역으로 변환
+        filtered_projection = fft_projection * filter  # 필터 적용
+        base_filtered[:, i] = np.real(ifft(fftshift(filtered_projection)))  # 필터링된 projection을 다시 이미지 영역으로 변환
+    return base_filtered
+
+base_filtered = apply_filter(pixels, angles, sinogram)
+# plt.imshow(base_filtered, cmap = 'gray')
+# plt.title('Filtered Sinogram')
+# plt.show()
+
+
+reconstructed_image = back_projection(pixels, angles, base_filtered, theta)
+# plt.imshow(reconstructed_image, cmap = 'gray')
+# plt.title('FBP Image filter = Ram-Lak')
+# plt.show()
+
+
+
+
+# Shepp-logan 필터함수 정의
+def Shepp_logan_filter(pixels):
+    sample_freq = fftfreq(pixels)
+    filter = 2 * np.abs(sample_freq) * np.sinc(sample_freq) # Ram=Lak 필터에 sinc 함수를 곱하여 Shepp-logan 필터 생성
+    filter = fftshift(filter) 
+    return filter.flatten()
+
+# Cosine 필터함수 정의
+def Cosine_filter(pixels):
+    sample_freq = fftfreq(pixels)
+    filter = 2 * np.abs(sample_freq) 
+    filter *= np.cos(np.pi * sample_freq)  # Ram-Lak 필터에 cos 함수를 곱하여 Cosine 필터 생성
+    filter = fftshift(filter) 
+    return filter.flatten()
+
+
+
+
+
+# Shepp-logan 필터 적용
+def apply_filter(pixels, angles, sinogram):
+    filter = Shepp_logan_filter(pixels)
+    base_filtered = np.zeros((512, 180), dtype=np.float32)
+    for i in range(angles):
         projection = sinogram[:, i]
         fft_projection = fftshift(fft(projection))
         filtered_projection = fft_projection * filter
-        filtered_sinogram[:, i] = np.real(ifft(fftshift(filtered_projection)))
-    return filtered_sinogram
+        base_filtered[:, i] = np.real(ifft(fftshift(filtered_projection)))
+    return base_filtered
 
-filtered_sinogram = apply_filter(sinogram)
-reconstructed_image = back_projection2(filtered_sinogram, theta)
-plt.imshow(reconstructed_image, cmap = 'gray')
-plt.show()
+base_filtered_sl = apply_filter(pixels, angles, sinogram)
+reconstructed_image_sl = back_projection(pixels, angles, base_filtered_sl, theta)
+# plt.imshow(reconstructed_image_sl, cmap = 'gray')
+# plt.title('FBP Image filter = Shepp-logan')
+# plt.show()
+
+
+# Cosine 필터 적용
+def apply_filter(pixels, angles, sinogram):
+    filter = Cosine_filter(pixels)
+    base_filtered = np.zeros((512, 180), dtype=np.float32)
+    for i in range(angles):
+        projection = sinogram[:, i]
+        fft_projection = fftshift(fft(projection))
+        filtered_projection = fft_projection * filter
+        base_filtered[:, i] = np.real(ifft(fftshift(filtered_projection)))
+    return base_filtered
+
+base_filtered_c = apply_filter(pixels, angles, sinogram)
+reconstructed_image_c = back_projection(pixels, angles, base_filtered_c, theta)
+# plt.imshow(reconstructed_image_c, cmap = 'gray')
+# plt.title('FBP Image filter = Cosine')
+# plt.show()
