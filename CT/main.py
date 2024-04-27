@@ -1,15 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import ndimage
-from scipy.fftpack import fft, ifft, fftshift
-from skimage.transform import radon, iradon
+import numpy.fft as fft
+from scipy.fftpack import fft, ifft, fftfreq, fftshift
+
 
 # .npy 파일 로드
-sino = np.load('C:/Users/bt090/CT/sinogram.npy')
-print('Data shape:', sino.shape)
-
-sinogram = sino.T
+sinogram = np.load('C:/Users/bt090/CT/sinogram.npy')
 print('Data shape:', sinogram.shape)
+
+sinograms = sinogram.T
+print('Data shape:', sinograms.shape)
+
+# sinogram 이미지 출력
+# plt.imshow(sinograms, cmap = 'gray')
+# plt.show()
+
 
 def back_projection(sinograms, theta):
     # sinogram의 행은 각도, 열은 레이더 센서의 인덱스입니다.
@@ -39,25 +45,44 @@ def back_projection(sinograms, theta):
 
 # Sinogram 데이터와 각도 벡터를 로드합니다.
 # 이 부분은 실제 데이터에 맞게 조정해야 합니다.
-theta = np.linspace(0., 180., sinogram.shape[0], endpoint=False)
+theta = np.linspace(0., 180., sinograms.shape[0], endpoint=False)
 
 # Back Projection을 수행합니다.
-reconstructed_img = back_projection(sinogram, theta)
+reconstructed_img = back_projection(sinograms, theta)
 
-# # 결과를 시각화합니다.
-plt.imshow(reconstructed_img, cmap='gray')
-plt.title('Back Projected Image')
-plt.axis('off')
-plt.show()
-
-# # # Apply ramp filter to sinogram
-# filtered_sinogram = np.abs(np.fft.ifft(np.fft.fftshift(np.fft.fft(sinogram, axis=1), axes=1), axis=1))
-
-# # Perform back projection on filtered sinogram
-# filtered_reconstructed_img = back_projection(filtered_sinogram, theta)
-
-# # Display the filtered reconstructed image
-# plt.imshow(filtered_reconstructed_img, cmap='gray')
-# plt.title('Filtered Reconstructed Image')
+# 결과를 시각화합니다.
+# plt.imshow(reconstructed_img, cmap='gray')
+# plt.title('Back Projected Image')
 # plt.axis('off')
 # plt.show()
+
+def create_filter(num_pixels, filter_type='ram-lak', cutoff=10.0):
+    # 필터 생성
+    freqs = fftfreq(num_pixels).reshape(-1, 1)
+    filter = 2 * np.abs(freqs)  # Ram-Lak 필터 기본 형태
+    if filter_type == 'shepp-logan':
+        # Shepp-Logan 필터는 Ram-Lak 필터에 사인 함수를 곱함
+        filter *= np.sinc(freqs / (2 * cutoff))
+    elif filter_type == 'cosine':
+        # 코사인 필터
+        filter *= np.cos(np.pi * freqs / (2 * cutoff))
+    filter = fftshift(filter)  # 필터를 주파수 영역으로 이동
+    return filter.flatten()
+
+def apply_filter(sinogram):
+    # 시노그램에 필터 적용
+    num_projections, num_pixels = sinogram.shape
+    filter = create_filter(num_pixels)
+    filtered_sinogram = np.zeros_like(sinogram)
+    for i in range(num_projections):
+        projection = sinogram[i, :]
+        fft_projection = fftshift(fft(projection))
+        filtered_projection = fft_projection * filter
+        filtered_sinogram[i, :] = np.real(ifft(fftshift(filtered_projection)))
+    return filtered_sinogram
+
+
+filtered_sinogram = apply_filter(sinograms)
+reconstructed_image = back_projection(filtered_sinogram, theta)
+plt.imshow(reconstructed_image, cmap = 'gray')
+plt.show()
