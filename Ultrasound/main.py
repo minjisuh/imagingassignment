@@ -7,53 +7,57 @@ import os
 
 rf_data = np.load('Ultrasound/arm_rfdata.npy')
 center_frequency = 7.6e6  # Hz
-sound_speed = 1450  # m/s
+speed_of_sound = 1450  # m/s
 speed_of_sound_phantom = 1450 # m/s
-element_spacing = 0.3e-3  # m
+spacing = 0.3e-3  # m
 sampling_rate = 31.16e6  # Hz
-num_elements = 128  
-num_samples = 2176  
-element_pos = np.array([i * element_spacing for i in range(num_elements)])  
+sensors = 128  
+samples = 2176  
+position = np.array([i * spacing for i in range(sensors)])  
 
 
 # 하나의 프레임에 대한 DAS beamforming
-def das_beamforming(rf_data, num_samples, num_elements, element_pos, sampling_rate, sound_speed, frame_number):
-    das_image = np.zeros((num_samples, num_elements))
+def das_beamforming(rf_data, samples, sensors, position, sampling_rate, speed_of_sound, frame_number):
+    base_das = np.zeros((samples, sensors))
     
-    for i in range(num_samples):
-        depth = i * sound_speed / (2 * sampling_rate) 
-        for j in range(num_elements):
-            distance = np.sqrt(depth**2 + (element_pos[j] - element_pos[num_elements//2])**2)
-            time_delay = distance / sound_speed
+    for i in range(samples):
+        depth = i * speed_of_sound / (2 * sampling_rate) 
+        for j in range(sensors):
+            distance = np.sqrt(depth**2 + (position[j] - position[sensors//2])**2)
+            time_delay = distance / speed_of_sound
             sample_index = int(time_delay *sampling_rate)
-            if sample_index < num_samples:
-                das_image[i, j] += rf_data[sample_index, j, frame_number]
-    return das_image
+            base_das[i, j] += rf_data[sample_index, j, frame_number]
+    return base_das
 
 def envelope_detection(image):
     analytic_signal = hilbert(image)
-    amplitude_envelope = np.abs(analytic_signal)
-    return amplitude_envelope
+    amplitude = np.abs(analytic_signal)
+    return amplitude
 
-def log_compression(image, dynamic_range=50):
+def log_compression(image):
+    dynamic_range=50
     compressed_image = 20 * np.log10(image / np.max(image))
     compressed_image = np.clip(compressed_image, -dynamic_range, 0) + dynamic_range
     return compressed_image
 
-def scan_conversion(image, output_size=(400, 400)):
-    zoom_factors = (output_size[0] / image.shape[0], output_size[1] / image.shape[1])
+def scan_conversion(image):
+    output_shape=(400, 400)
+    zoom_factors = (output_shape[0] / image.shape[0], 
+                    output_shape[1] / image.shape[1])
     converted_image = zoom(image, zoom_factors, order=1)
     return converted_image
 
 for i in range(100):
-    fig, ax = plt.subplots()
-    image = das_beamforming(rf_data, num_samples, num_elements, element_pos, sampling_rate, sound_speed, i)
+    base, one_image = plt.subplots()
+
+    image = das_beamforming(rf_data, samples, sensors, position, sampling_rate, speed_of_sound, i)
     envelope_image = envelope_detection(image)
     compressed_image = log_compression(envelope_image)
-    final_image = scan_conversion(compressed_image, (400, 400))
-    ax.imshow(final_image, cmap='gray')
+    final_image = scan_conversion(compressed_image)
+    
+    one_image.imshow(final_image, cmap='gray')
     plt.savefig(f'frame_{i}.png')
-    plt.close(fig)
+    plt.close(base)
 
 filenames = [f'frame_{i}.png' for i in range(100)]
 with imageio.get_writer('video .gif', mode='I', fps=20) as writer:
