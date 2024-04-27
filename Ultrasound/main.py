@@ -6,6 +6,7 @@ import imageio.v2 as imageio
 import os
 
 rf_data = np.load('Ultrasound/arm_rfdata.npy')
+phantom_data = np.load('Ultrasound/phantom_rfdata.npy')
 center_frequency = 7.6e6  # Hz
 speed_of_sound = 1450  # m/s
 speed_of_sound_phantom = 1450 # m/s
@@ -17,14 +18,14 @@ position = np.array([i * spacing for i in range(sensors)])
 
 
 # 하나의 프레임에 대한 DAS beamforming
-def das_beamforming(rf_data, samples, sensors, position, sampling_rate, speed_of_sound, frame_number):
+def das_beamforming(rf_data, samples, sensors, position, sampling_rate, speed_of_sound_phantom, frame_number):
     base_das = np.zeros((samples, sensors))
     
     for i in range(samples):
-        depth = i * speed_of_sound / (2 * sampling_rate) 
+        depth = i * speed_of_sound_phantom / (2 * sampling_rate) 
         for j in range(sensors):
             distance = np.sqrt(depth**2 + (position[j] - position[sensors//2])**2)
-            time_delay = distance / speed_of_sound
+            time_delay = distance / speed_of_sound_phantom
             sample_index = int(time_delay *sampling_rate)
             base_das[i, j] += rf_data[sample_index, j, frame_number]
     return base_das
@@ -50,7 +51,7 @@ def scan_conversion(image):
 for i in range(100):
     base, one_image = plt.subplots()
 
-    image = das_beamforming(rf_data, samples, sensors, position, sampling_rate, speed_of_sound, i)
+    image = das_beamforming(phantom_data, samples, sensors, position, sampling_rate, speed_of_sound_phantom, i)
     envelope_image = envelope_detection(image)
     compressed_image = log_compression(envelope_image)
     final_image = scan_conversion(compressed_image)
