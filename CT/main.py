@@ -7,11 +7,11 @@ from scipy.fftpack import fft, ifft, fftfreq, fftshift
 #  주어진 sinogram 파일 로드
 sinogram = np.load('CT/sinogram.npy')
 pixels, angles = sinogram.shape
-theta = list(range(0, 180))
-
+theta = list(range(0, 180)) # 0~179도의 각도 리스트 생성
 # plt.imshow(sinogram, cmap = 'gray')
 # plt.title('Sinogram')
 # plt.show()
+
 
 
 # BP 함수 정의
