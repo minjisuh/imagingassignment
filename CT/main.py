@@ -77,8 +77,7 @@ def Shepp_logan_filter(pixels):
 # Cosine 필터함수 정의
 def Cosine_filter(pixels):
     sample_freq = fftfreq(pixels)
-    filter = 2 * np.abs(sample_freq) 
-    filter *= np.cos(np.pi * sample_freq)  # Ram-Lak 필터에 cos 함수를 곱하여 Cosine 필터 생성
+    filter = 2 * np.abs(sample_freq) * np.cos(np.pi * sample_freq)  # Ram-Lak 필터에 cos 함수를 곱하여 Cosine 필터 생성
     filter = fftshift(filter) 
     return filter.flatten()
 
@@ -117,6 +116,6 @@ def apply_filter(pixels, angles, sinogram):
 
 base_filtered_c = apply_filter(pixels, angles, sinogram)
 reconstructed_image_c = back_projection(pixels, angles, base_filtered_c, theta)
-# plt.imshow(reconstructed_image_c, cmap = 'gray')
-# plt.title('FBP Image filter = Cosine')
-# plt.show()
+plt.imshow(reconstructed_image_c, cmap = 'gray')
+plt.title('FBP Image filter = Cosine')
+plt.show()
